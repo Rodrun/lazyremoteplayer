@@ -1,0 +1,229 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('lazyremoteplayer:server');
+var http = require('http');
+var queue = require("../queue");
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Create Socket IO instance and events.
+ */
+var io = require("socket.io")(server);
+var mediaClient = null; // Media client socket
+
+/**
+ * Emit an event to the active media client--if any.
+ * 
+ * @param {Object} mc Media client socket.
+ * @param {String} event Name of event.
+ * @param {Any} data Data to send.
+ */
+function mediaClientEmit(mc, event, data) {
+  try {
+    mc.emit(event, data);
+  } catch (err) {
+    console.log("Error occurred on socket.emit: " + err);
+  }
+}
+/**
+ * Emit a standard greet to the client socket.
+ * 
+ * @param socket Socket object.
+ */
+function emitGreet(socket) {
+  socket.emit("greet", {
+    "queue": queue.queue,
+    "delta": queue.getDeltaNumber()
+  });
+}
+
+/**
+ * Broadcast delta update to all other sockets. Will not check for
+ * delta validitiy!
+ * 
+ * @param {Object} socket Socket to use.
+ * @param {Object} d Delta object.
+ * @param {Boolean} include Also emit to given socket.
+ */
+function emitDeltaUpdate(socket, d, include) {
+  if (socket) {
+    socket.broadcast.emit("delta update", d);
+    if (include) {
+      socket.emit("delta update", d);
+    }
+  }
+}
+
+// New client connection
+io.on("connection", function(socket) {
+  // Register as control or media client
+  var isMediaClient = socket.handshake.query.mediaClient;
+  console.log("client query = " + socket.handshake.query);
+  console.log("isMediaClient = " + isMediaClient);
+  // Only allow one media client to have an active connection
+  if (isMediaClient && mediaClient) {
+    console.log("Disconnecting attempted media client");
+    socket.disconnect(true);
+  }
+  
+  // Control client events
+  if (!isMediaClient) {
+    // Initial greet:
+    emitGreet(socket);
+    console.log("CLIENT control connected");
+
+    socket.on("get all", function(data) {
+      emitGreet(socket);
+    });
+  
+    // Client wants to add a delta (change to queue)
+    socket.on("propose", function(data) {
+      console.log("CLIENT proposed: " + JSON.stringify(data));
+      queue.performDelta(data).then((newDelta) => {
+        socket.emit("good delta", newDelta);
+        // Notify everyone about the new delta
+        emitDeltaUpdate(socket, newDelta);
+      },
+      (err) => {
+        console.log("proposal error: " + err);
+        // TODO: use diff
+        socket.emit("bad delta");
+      });
+    });
+  
+    socket.on("play", function() {
+      console.log("CLIENT requested play");
+      mediaClientEmit(mediaClient, "play");
+    });
+  
+    socket.on("pause", function() {
+      console.log("CLIENT requested pause");
+      mediaClientEmit(mediaClient, "pause");
+    });
+
+    socket.on("next", function() {
+      console.log("CLIENT requested next");
+      // Going to the next element in the queue is done by deleting the first
+      queue.proceedToNext((newDelta) => {
+        // Notify everyone, because we modified the queue
+        console.log("notifying all of new front of queue");
+        emitDeltaUpdate(socket, newDelta, true);
+        mediaClientEmit(mediaClient, "set url", queue.getCurrent().url);
+      }, (cur) => { // If there isn't anything to pop (and queue length = 1)
+        console.log("only one media in queue, resetting URL: " + cur.url);
+        mediaClientEmit(mediaClient, "set url", cur.url);
+      });
+    });
+  } else { // Media client events
+    console.log("MEDIA client connected");
+    mediaClient = socket;
+
+    // Only initially let know of the current if there is one
+    if (queue.getCurrent())
+      mediaClientEmit(mediaClient, "set url", queue.getCurrent().url);
+
+    socket.on("media ended", function() {
+      // Auto play next (if any)
+      queue.proceedToNext((newDelta) => {
+        console.log("auto-playing next in queue");
+        emitDeltaUpdate(socket, newDelta);
+        mediaClientEmit(mediaClient, "set url", queue.getCurrent().url);
+      }, () => {});
+    });
+
+    socket.on("disconnect", function() {
+      console.log("MEDIA client disconnected!");
+      mediaClient = null; // Allow new media client
+    });
+
+    socket.on("error", function(err) {
+      console.log("MEDIA client error: " + err);
+    });
+  }
+});
+
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
