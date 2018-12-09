@@ -8,6 +8,7 @@ var app = require('../app');
 var debug = require('debug')('lazyremoteplayer:server');
 var http = require('http');
 var queue = require("../queue");
+const t = require("typy");
 
 /**
  * Get port from environment and store in Express.
@@ -30,11 +31,13 @@ server.listen(port);
 server.on('error', onError);
 server.on('listening', onListening);
 
+// TODO migrate everything SOCKET-related to another module
 /**
  * Create Socket IO instance and events.
  */
 var io = require("socket.io")(server);
 var mediaClient = null; // Media client socket
+var volume = 1; // Media client volume
 
 /**
  * Emit an event to the active media client--if any.
@@ -63,6 +66,36 @@ function emitGreet(socket) {
 }
 
 /**
+ * Check if x is within given min and max.
+ * Expect false if min > max.
+ * 
+ * @param {Number} x Input.
+ * @param {Number} min Minimum bound.
+ * @param {Number} max Maximum bound.
+ * @returns If min <= x <= max.
+ */
+function withinBounds(x, min, max) {
+  return x >= min && x <= max;
+}
+
+/**
+ * Clamp x within a minimum and maximum boundary, so it never is over or under
+ * the respective boundaries.
+ *
+ * @param x {Number} Input.
+ * @param min {Number} Minimum bound.
+ * @param max {Number} Maximum bound.
+ */
+function clampTo(x, min, max) {
+  if (x < min) {
+    return min;
+  } else if (x > max) {
+    return max;
+  }
+  return x;
+}
+
+/**
  * Broadcast delta update to all other sockets. Will not check for
  * delta validitiy!
  * 
@@ -83,18 +116,14 @@ function emitDeltaUpdate(socket, d, include) {
 io.on("connection", function(socket) {
   // Register as control or media client
   var isMediaClient = socket.handshake.query.mediaClient;
-  console.log("client query = " + socket.handshake.query);
-  console.log("isMediaClient = " + isMediaClient);
   // Only allow one media client to have an active connection
   if (isMediaClient && mediaClient) {
     console.log("Disconnecting attempted media client");
     socket.disconnect(true);
   }
   
-  // Control client events
   if (!isMediaClient) {
-    // Initial greet:
-    emitGreet(socket);
+    /* CLIENT EVENTS */
     console.log("CLIENT control connected");
 
     socket.on("get all", function(data) {
@@ -115,31 +144,40 @@ io.on("connection", function(socket) {
         socket.emit("bad delta");
       });
     });
-  
+
     socket.on("play", function() {
-      console.log("CLIENT requested play");
       mediaClientEmit(mediaClient, "play");
     });
-  
+
     socket.on("pause", function() {
-      console.log("CLIENT requested pause");
       mediaClientEmit(mediaClient, "pause");
     });
 
     socket.on("next", function() {
-      console.log("CLIENT requested next");
       // Going to the next element in the queue is done by deleting the first
       queue.proceedToNext((newDelta) => {
         // Notify everyone, because we modified the queue
-        console.log("notifying all of new front of queue");
         emitDeltaUpdate(socket, newDelta, true);
         mediaClientEmit(mediaClient, "set url", queue.getCurrent().url);
       }, (cur) => { // If there isn't anything to pop (and queue length = 1)
-        console.log("only one media in queue, resetting URL: " + cur.url);
         mediaClientEmit(mediaClient, "set url", cur.url);
       });
     });
-  } else { // Media client events
+
+    socket.on("volume edit", function(vol) {
+      // Shallow validation
+      console.log("CLIENT recieved vol = " + vol);
+      if (t(vol).isNumber) {
+        if (withinBounds(Math.abs(vol), 0, 1)) {
+          volume = clampTo(volume + vol, 0, 1);
+          // Emit to media client
+          console.log("Sending volume to media: " + volume);
+          mediaClientEmit(mediaClient, "volume", {volume: volume});
+        }
+      }
+    });
+  } else {
+    /* MEDIA CLIENT EVENTS */
     console.log("MEDIA client connected");
     mediaClient = socket;
 

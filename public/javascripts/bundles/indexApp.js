@@ -23254,15 +23254,34 @@ function _assertThisInitialized(self) { if (self === void 0) { throw new Referen
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
-/* Style */
-var STYLE = {
+/* Style/classes constants */
+var STYLE = Object.freeze({
   "button": "w3-button",
+  "button-circle": "w3-circle",
   "bar": "w3-bar",
-  "div": "w3-container"
-}; // Control client socket
+  "div": "w3-container",
+  "panel": "w3-panel w3-display-container",
+  "display-": "w3-display-" // Prefix for display classes
+
+});
+/**
+ * Combine multiple styles as one string.
+ *
+ * @param  {...any} styles Class names to join.
+ */
+
+function joinStyles() {
+  for (var _len = arguments.length, styles = new Array(_len), _key = 0; _key < _len; _key++) {
+    styles[_key] = arguments[_key];
+  }
+
+  return styles.join(" ");
+} // Control client socket
+
 
 var socket = null; // Will not connect until QueueRoot loaded
 
+var deltaNumber = 0;
 /**
  * Emit an event to the server.
  * 
@@ -23334,7 +23353,6 @@ function (_React$Component) {
      * Clear the text field.
      */
     value: function clear() {
-      console.log("clear()");
       this.setState({
         value: ""
       }); //this.onChange({target: {value: ""}});
@@ -23432,43 +23450,98 @@ function (_React$Component2) {
   return TextSubmitter;
 }(_react.default.Component);
 /**
+ * Volume controller component. Allows client to increase/decrease
+ * media player volume.
+ */
+
+
+var VolumeController =
+/*#__PURE__*/
+function (_React$Component3) {
+  _inherits(VolumeController, _React$Component3);
+
+  function VolumeController(props) {
+    var _this3;
+
+    _classCallCheck(this, VolumeController);
+
+    _this3 = _possibleConstructorReturn(this, _getPrototypeOf(VolumeController).call(this, props));
+
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "decreaseClick", function () {
+      emit("volume edit", -0.1);
+    });
+
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "increaseClick", function () {
+      emit("volume edit", 0.1);
+    });
+
+    return _this3;
+  }
+  /**
+   * Get the increment/decrement step. This is to be
+   * sent with "volume edit" events.
+   */
+
+
+  _createClass(VolumeController, [{
+    key: "getStep",
+    value: function getStep() {
+      if (this.props.step) {
+        return Math.abs(this.props.step);
+      }
+
+      return 0.1; // Default
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      return _react.default.createElement("div", {
+        className: STYLE["div"]
+      }, _react.default.createElement("button", {
+        className: STYLE["button-circle"],
+        onClick: this.decreaseClick
+      }, "-"), _react.default.createElement("button", {
+        className: STYLE["button-circle"],
+        onClick: this.increaseClick
+      }, "+"));
+    }
+  }]);
+
+  return VolumeController;
+}(_react.default.Component);
+/**
  * Control root component. Here goes all the input components
- * of the controller.
+ * of the controller. All requested inputs will emit to the
+ * server, and actual changes to the queue will occur once
+ * the server responds.
  */
 
 
 var ControlRoot =
 /*#__PURE__*/
-function (_React$Component3) {
-  _inherits(ControlRoot, _React$Component3);
+function (_React$Component4) {
+  _inherits(ControlRoot, _React$Component4);
 
   function ControlRoot(props) {
-    var _this3;
+    var _this4;
 
     _classCallCheck(this, ControlRoot);
 
-    _this3 = _possibleConstructorReturn(this, _getPrototypeOf(ControlRoot).call(this, props));
+    _this4 = _possibleConstructorReturn(this, _getPrototypeOf(ControlRoot).call(this, props));
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "onPauseClick", function () {
-      console.log("Pause clicked");
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onPauseClick", function () {
       emit("pause");
     });
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "onPlayClick", function () {
-      console.log("Play clicked");
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onPlayClick", function () {
       emit("play");
     });
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "onNextClick", function () {
-      console.log("Next clicked");
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onNextClick", function () {
       emit("next");
     });
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "onAddClick", function () {
-      console.log("Add clicked");
-    });
-
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this3)), "onSubmit", function (value) {
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onSubmit", function (value) {
       console.log("Submitted: " + value);
       emit("propose", {
         action: 3,
@@ -23478,7 +23551,7 @@ function (_React$Component3) {
       });
     });
 
-    return _this3;
+    return _this4;
   }
 
   _createClass(ControlRoot, [{
@@ -23496,7 +23569,7 @@ function (_React$Component3) {
       }, this.props.playText), _react.default.createElement("button", {
         className: STYLE["button"],
         onClick: this.onNextClick
-      }, this.props.nextText), _react.default.createElement(TextSubmitter, {
+      }, this.props.nextText), _react.default.createElement(VolumeController, null), _react.default.createElement(TextSubmitter, {
         onSubmit: this.onSubmit
       }));
     }
@@ -23509,10 +23582,9 @@ function (_React$Component3) {
 
 var MediaObject =
 /*#__PURE__*/
-function (_React$Component4) {
-  _inherits(MediaObject, _React$Component4);
+function (_React$Component5) {
+  _inherits(MediaObject, _React$Component5);
 
-  // TODO: Finish
   function MediaObject(props) {
     _classCallCheck(this, MediaObject);
 
@@ -23522,35 +23594,48 @@ function (_React$Component4) {
   _createClass(MediaObject, [{
     key: "render",
     value: function render() {
-      return _react.default.createElement("li", {
-        className: "media-object"
-      }, this.props.url);
+      var removeCNames = joinStyles(STYLE["display-"] + "right", STYLE["button-circle"]);
+      return _react.default.createElement("li", null, _react.default.createElement("div", {
+        className: STYLE["panel"]
+      }, _react.default.createElement("span", {
+        className: STYLE["display-"] + "middle"
+      }, this.props.url), _react.default.createElement("button", {
+        className: removeCNames
+      }, "\xD7")));
     }
   }]);
 
   return MediaObject;
 }(_react.default.Component);
+/**
+ * Root component of the queue viewer. All media objects
+ * will be displayed here.
+ */
+
 
 var QueueRoot =
 /*#__PURE__*/
-function (_React$Component5) {
-  _inherits(QueueRoot, _React$Component5);
+function (_React$Component6) {
+  _inherits(QueueRoot, _React$Component6);
 
   function QueueRoot(props) {
-    var _this4;
+    var _this5;
 
     _classCallCheck(this, QueueRoot);
 
-    _this4 = _possibleConstructorReturn(this, _getPrototypeOf(QueueRoot).call(this, props)); // TODO: set socket object in props
-
-    _this4.state = {
+    _this5 = _possibleConstructorReturn(this, _getPrototypeOf(QueueRoot).call(this, props));
+    _this5.state = {
       queue: [],
       // Queue of media objects
       deltaNumber: 0 // Client delta number
 
     };
-    return _this4;
+    return _this5;
   }
+  /**
+   * Perform a given delta.
+   */
+
 
   _createClass(QueueRoot, [{
     key: "performDelta",
@@ -23569,7 +23654,7 @@ function (_React$Component5) {
           break;
 
         case 6:
-          this.deleteall();
+          this.deleteAll();
           break;
 
         default:
@@ -23582,13 +23667,14 @@ function (_React$Component5) {
   }, {
     key: "componentDidMount",
     value: function componentDidMount() {
-      var _this5 = this;
+      var _this6 = this;
 
       // Add socket listeners
       socket = io(); // Server connection (temporary)
 
       var that = this;
       addListener("greet", function (data) {
+        console.log("Recieved greet");
         that.setState(function (state, props) {
           // Map all media to MediaObjects
           var fixedMap = data.queue.map(function (mediaObj) {
@@ -23605,15 +23691,17 @@ function (_React$Component5) {
         });
       });
       addListener("good delta", function (d) {
-        return _this5.performDelta(d);
+        return _this6.performDelta(d);
       });
       addListener("delta update", function (d) {
-        return _this5.performDelta(d);
+        return _this6.performDelta(d);
       });
       addListener("bad delta", function (deltas) {
         // TODO
         console.log("got bad delta response");
-      });
+      }); // Request to get current queue info
+
+      emit("get all");
     }
     /**
      * Add media to the queue.

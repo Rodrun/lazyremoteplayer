@@ -2,12 +2,24 @@
 import React from "react";
 import ReactDOM from "react-dom";
 
-/* Style */
-const STYLE = {
+/* Style/classes constants */
+const STYLE = Object.freeze({
     "button": "w3-button",
+    "button-circle": "w3-circle",
     "bar": "w3-bar",
-    "div": "w3-container"
-};
+    "div": "w3-container",
+    "panel": "w3-panel w3-display-container",
+    "display-": "w3-display-" // Prefix for display classes
+});
+
+/**
+ * Combine multiple styles as one string.
+ *
+ * @param  {...any} styles Class names to join.
+ */
+function joinStyles(...styles) {
+    return styles.join(" ");
+}
 
 // Control client socket
 var socket = null; // Will not connect until QueueRoot loaded
@@ -133,8 +145,50 @@ class TextSubmitter extends React.Component {
 }
 
 /**
+ * Volume controller component. Allows client to increase/decrease
+ * media player volume.
+ */
+class VolumeController extends React.Component {
+    constructor(props) {
+        super(props);
+    }
+
+    /**
+     * Get the increment/decrement step. This is to be
+     * sent with "volume edit" events.
+     */
+    getStep() {
+        if (this.props.step) {
+            return Math.abs(this.props.step);
+        }
+        return 0.1; // Default
+    }
+
+    decreaseClick = () => {
+        emit("volume edit", -0.1);
+    }
+
+    increaseClick = () => {
+        emit("volume edit", 0.1)
+    }
+
+    render() {
+        return <div className={STYLE["div"]}>
+            <button
+                className={STYLE["button-circle"]}
+                onClick={this.decreaseClick}>-</button>
+            <button
+                className={STYLE["button-circle"]}
+                onClick={this.increaseClick}>+</button>
+            </div>;
+    }
+}
+
+/**
  * Control root component. Here goes all the input components
- * of the controller.
+ * of the controller. All requested inputs will emit to the
+ * server, and actual changes to the queue will occur once
+ * the server responds.
  */
 class ControlRoot extends React.Component {
     constructor(props) {
@@ -142,22 +196,15 @@ class ControlRoot extends React.Component {
     }
 
     onPauseClick = () => {
-        console.log("Pause clicked");
         emit("pause");
     }
 
     onPlayClick = () => {
-        console.log("Play clicked");
         emit("play");
     }
 
     onNextClick = () => {
-        console.log("Next clicked");
         emit("next");
-    }
-
-    onAddClick = () => {
-        console.log("Add clicked");
     }
 
     /**
@@ -177,6 +224,7 @@ class ControlRoot extends React.Component {
             <button className={STYLE["button"]} onClick={this.onPauseClick}>{this.props.pauseText}</button>
             <button className={STYLE["button"]} onClick={this.onPlayClick}>{this.props.playText}</button>
             <button className={STYLE["button"]} onClick={this.onNextClick}>{this.props.nextText}</button>
+            <VolumeController />
             <TextSubmitter onSubmit={this.onSubmit} />
             </div>;
     }
@@ -184,26 +232,39 @@ class ControlRoot extends React.Component {
 
 /* Set up queue root */
 
-class MediaObject extends React.Component { // TODO: Finish
+class MediaObject extends React.Component {
     constructor(props) {
         super(props);
     }
 
     render() {
-        return <li className="media-object">{this.props.url}</li>;
+        const removeCNames = joinStyles(STYLE["display-"] + "right",
+            STYLE["button-circle"]);
+        return <li>
+            <div className={STYLE["panel"]}>
+                <span className={STYLE["display-"] + "middle"}>{this.props.url}</span>
+                <button className={removeCNames}>&times;</button>
+            </div>
+        </li>;
     }
 }
 
-
+/**
+ * Root component of the queue viewer. All media objects
+ * will be displayed here.
+ */
 class QueueRoot extends React.Component {
     constructor(props) {
-        super(props); // TODO: set socket object in props
+        super(props);
         this.state = {
             queue: [], // Queue of media objects
             deltaNumber: 0 // Client delta number
         };
     }
 
+    /**
+     * Perform a given delta.
+     */
     performDelta(delta) {
         // TODO: Use more "scalable (?)" solution
         // This is temporary
@@ -216,7 +277,7 @@ class QueueRoot extends React.Component {
                 this.add(delta.media);
                 break;
             case 6:
-                this.deleteall();
+                this.deleteAll();
                 break;
             default:
                 console.warn("did not recognize given delta?");
@@ -227,9 +288,10 @@ class QueueRoot extends React.Component {
 
     componentDidMount() { // Add socket listeners
         socket = io(); // Server connection (temporary)
-        
+
         let that = this;
         addListener("greet", function(data) {
+            console.log("Recieved greet");
             that.setState((state, props) => {
                 // Map all media to MediaObjects
                 const fixedMap = data.queue.map((mediaObj) => {

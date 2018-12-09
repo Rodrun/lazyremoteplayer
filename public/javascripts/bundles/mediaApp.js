@@ -27340,11 +27340,11 @@ function (_React$Component) {
 
     _classCallCheck(this, Player);
 
-    _this = _possibleConstructorReturn(this, _getPrototypeOf(Player).call(this, props)); //this.onChange = this.onChange.bind(this);
+    _this = _possibleConstructorReturn(this, _getPrototypeOf(Player).call(this, props));
 
     _defineProperty(_assertThisInitialized(_assertThisInitialized(_this)), "onStart", function () {
-      // Notify server
-      console.log("media starting");
+      console.log("media starting"); // Notify server
+
       var socket = _this.state.socket;
 
       if (socket) {// TODO
@@ -27352,8 +27352,8 @@ function (_React$Component) {
     });
 
     _defineProperty(_assertThisInitialized(_assertThisInitialized(_this)), "onEnded", function () {
-      // Notify server
-      console.log("media ended");
+      console.log("media ended"); // Notify server
+
       var socket = _this.state.socket;
 
       if (socket) {
@@ -27362,13 +27362,16 @@ function (_React$Component) {
     });
 
     _defineProperty(_assertThisInitialized(_assertThisInitialized(_this)), "onPause", function () {
-      // Notify server
-      console.log("media paused");
+      // Update state
+      _this.setState({
+        playing: false
+      }); // Notify server
+
     });
 
     _defineProperty(_assertThisInitialized(_assertThisInitialized(_this)), "onError", function (e) {
-      // Notify server
-      console.log("onError: " + e);
+      console.log("onError: " + e); // Notify server
+
       var socket = _this.state.socket;
 
       if (socket) {
@@ -27378,8 +27381,11 @@ function (_React$Component) {
 
     _this.state = {
       url: null,
+      // URL of media
       playing: false,
-      volume: null,
+      // Is playing?
+      volume: 1,
+      // Media volume
       socket: null // Server connection socket
 
     };
@@ -27391,9 +27397,7 @@ function (_React$Component) {
     value: function componentDidMount() {
       var _this2 = this;
 
-      console.log("mounted Player component");
-      /* Init */
-
+      // Initialize socket
       this.setState(function (state, props) {
         var socket = io({
           query: {
@@ -27409,6 +27413,12 @@ function (_React$Component) {
         };
       });
     }
+    /**
+     * Set up the socket events to listen for.
+     * 
+     * @param {Object} socket Server connection socket.
+     */
+
   }, {
     key: "createEvents",
     value: function createEvents(socket) {
@@ -27476,6 +27486,7 @@ function (_React$Component) {
         onEnded: this.onEnded,
         onPause: this.onPause,
         onError: this.onError,
+        volume: this.state.volume,
         controls: true,
         className: "react-player",
         width: "100%",

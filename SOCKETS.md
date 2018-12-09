@@ -2,6 +2,8 @@
 
 In order to keep client and server queues synchronized, the client and server are connected via socket.io. See `DELTA.md` for further references on delta. There are two distinct types of connections: _server-control client_ and _server-media client_. _Server-control client_ refers to a connection between the server and a "normal" client that'll make requests to the queue and media player status. _Server-media client_ connections accept media player state change data, and only one of these are permitted.
 
+This project utilizes (socket.io)[https://socket.io/] for socket communications.
+
 ## On initial connection
 
 ### Server-control client connection
@@ -30,7 +32,7 @@ Broadcast new delta to all clients. The data is the same as a delta object.
 
 __To__ client __from__ server.
 
-Greeting message.
+"Greeting" message. Tells the client the current queue and delta number.
 
 __data:__
 
@@ -139,7 +141,7 @@ Pause media.
 
 ### `"volume"`
 
-__To__ client __from__ server.
+Both client and server can send/recieve.
 
 Set the volume of the player. The given volume is in terms of percentages [0.0, 1.0].
 
@@ -149,6 +151,18 @@ __data:__
 {
     "volume": Float
 }
+```
+
+### `"volume edit"`
+
+__To__ server __from__ client.
+
+Edit the media player volume, by adding the given value.
+
+__data:__
+
+```js
+Float
 ```
 
 ### `"seek"`

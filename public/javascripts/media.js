@@ -12,18 +12,16 @@ class Player extends React.Component {
      */
     constructor(props) {
         super(props);
-        //this.onChange = this.onChange.bind(this);
         this.state = {
-            url: null,
-            playing: false,
-            volume: null,
+            url: null, // URL of media
+            playing: false, // Is playing?
+            volume: 1, // Media volume
             socket: null // Server connection socket
         };
     }
 
     componentDidMount() {
-        console.log("mounted Player component");
-        /* Init */
+        // Initialize socket
         this.setState((state, props) => {
             let socket = io({
                 query: {
@@ -36,6 +34,11 @@ class Player extends React.Component {
         });
     }
 
+    /**
+     * Set up the socket events to listen for.
+     * 
+     * @param {Object} socket Server connection socket.
+     */
     createEvents(socket) {
         console.log("creating event listeners");
         var fthis = this;
@@ -84,8 +87,8 @@ class Player extends React.Component {
     /// Prop callbacks
 
     onStart = () => {
-        // Notify server
         console.log("media starting");
+        // Notify server
         const socket = this.state.socket;
         if (socket) {
             // TODO
@@ -93,8 +96,8 @@ class Player extends React.Component {
     };
 
     onEnded = () => {
-        // Notify server
         console.log("media ended");
+        // Notify server
         const socket = this.state.socket;
         if (socket) {
             socket.emit("media ended");
@@ -102,13 +105,14 @@ class Player extends React.Component {
     };
 
     onPause = () => {
+        // Update state
+        this.setState({playing: false});
         // Notify server
-        console.log("media paused");
     }
 
     onError = (e) => {
-        // Notify server
         console.log("onError: " + e);
+        // Notify server
         const socket = this.state.socket;
         if (socket) {
             socket.emit("error", e);
@@ -137,6 +141,9 @@ class Player extends React.Component {
         }
         onError = {
             this.onError
+        }
+        volume = {
+            this.state.volume
         }
         controls
         className = "react-player"
