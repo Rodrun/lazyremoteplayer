@@ -3,6 +3,7 @@ body {
   font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
   background-color: #070707;
   color: #838181;
+  overflow-x: hidden !important;
 }
 
 .player-wrapper {
@@ -14,4 +15,8 @@ body {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+button {
+  color: #838181;
 }

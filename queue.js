@@ -5,6 +5,7 @@
  * - url (string): URL/file location of media.
  */
 
+const uuidv1 = require("uuid/v1"); // TODO
 var t = require("typy");
 
 /**
@@ -432,7 +433,7 @@ module.exports = {
         return new Promise((resolve, reject) => {
             if (isValidDelta(d)) {
                 const prevDelta = this.getDeltaNumber();
-                ACTION_NAMES["" + d.action](d);
+                ACTION_NAMES["" + d.action](d); // Perform delta action
                 const success = prevDelta != this.getDeltaNumber();
                 if (success) {
                     resolve(d);

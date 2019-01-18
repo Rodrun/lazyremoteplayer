@@ -6,6 +6,7 @@ import ReactDOM from "react-dom";
 const STYLE = Object.freeze({
     "button": "w3-button",
     "button-circle": "w3-circle",
+    "mobile": "w3-mobile", // Responsive
     "bar": "w3-bar",
     "div": "w3-container",
     "panel": "w3-panel w3-display-container",
@@ -22,7 +23,7 @@ function joinStyles(...styles) {
 }
 
 // Control client socket
-var socket = null; // Will not connect until QueueRoot loaded
+var socket = io(); // Will not connect until QueueRoot loaded
 var deltaNumber = 0;
 
 /**
@@ -51,10 +52,22 @@ function addListener(event, fn) {
     }
 }
 
+const Button = props =>
+    <button
+        className={props.type || STYLE["button"]}
+        onClick={props.onClick}>
+            {props.text}
+    </button>;
+
 /**
  * Text field component. This renders an <input>.
  */
 class TextField extends React.Component {
+    /**
+     * @constructor
+     * Significant prop:
+     * valueListener = Function that recieves updated value of text.
+     */
     constructor(props) {
         super(props);
         this.state = {value: ""};
@@ -135,11 +148,9 @@ class TextSubmitter extends React.Component {
             <TextField
                 ref={this.fieldRef}
                 valueListener={this.valueListener} />
-            <button
-                className={STYLE["button"]}
-                onClick={this.onClick}>
-                {this.getButtonName()}
-            </button>
+            <Button
+                onClick={this.onClick}
+                text={this.getButtonName()} />
             </div>;
     }
 }
@@ -173,14 +184,50 @@ class VolumeController extends React.Component {
     }
 
     render() {
-        return <div className={STYLE["div"]}>
-            <button
-                className={STYLE["button-circle"]}
-                onClick={this.decreaseClick}>-</button>
-            <button
-                className={STYLE["button-circle"]}
-                onClick={this.increaseClick}>+</button>
+        return <div className={STYLE["bar"]}>
+            <Button
+                type={STYLE["button-circle"]}
+                onClick={this.decreaseClick}
+                text={"-"} />
+            <Button
+                type={STYLE["button-circle"]}
+                onClick={this.increaseClick}
+                text={"+"} />
             </div>;
+    }
+}
+
+/**
+ * Display and handle playback options, including play, pause, and next.
+ */
+class PlaybackController extends React.Component {
+    /**
+     * @constructor
+     * Significant props (all have defaults):
+     * onPauseClick - Callback on pause clicked.
+     * onPlayClick - Callback on play clicked.
+     * onNextClick - Callback okn next clicked.
+     * pauseText - Pause button text.
+     * playText - Play button text.
+     * nextText - Next button text.
+     */
+    constructor(props) {
+        super(props);
+        const DEFAULT_CALLBACK = () => console.warn("No callback on click.");
+        this.onPauseClick = props.onPauseClick || DEFAULT_CALLBACK;
+        this.onPlayClick = props.onPlayClick || DEFAULT_CALLBACK;
+        this.onNextClick = props.onNextClick || DEFAULT_CALLBACK;
+        this.pauseText = props.pauseText || "Pause";
+        this.playText = props.playText || "Play";
+        this.nextText = props.nextText || "Next";
+    }
+
+    render() {
+        return <div className={"bar"}>
+            <Button onClick={this.onPauseClick} text={this.pauseText} />
+            <Button onClick={this.onPlayClick} text={this.playText} />
+            <Button onClick={this.onNextClick} text={this.nextText} />
+        </div>;
     }
 }
 
@@ -212,7 +259,6 @@ class ControlRoot extends React.Component {
      * will recieve user input to add a new media object to queue.
      */
     onSubmit = (value) => {
-        console.log("Submitted: " + value);
         emit("propose", {
             action: 3,
             media: {url: value}
@@ -221,9 +267,11 @@ class ControlRoot extends React.Component {
 
     render() {
         return <div className={STYLE["bar"]} id="controlRoot">
-            <button className={STYLE["button"]} onClick={this.onPauseClick}>{this.props.pauseText}</button>
-            <button className={STYLE["button"]} onClick={this.onPlayClick}>{this.props.playText}</button>
-            <button className={STYLE["button"]} onClick={this.onNextClick}>{this.props.nextText}</button>
+            <PlaybackController
+                onPauseClick={this.onPauseClick}
+                onPlayClick={this.onPlayClick}
+                onNextClick={this.onNextClick}
+                /> 
             <VolumeController />
             <TextSubmitter onSubmit={this.onSubmit} />
             </div>;
@@ -232,20 +280,24 @@ class ControlRoot extends React.Component {
 
 /* Set up queue root */
 
-class MediaObject extends React.Component {
+/**
+ * Displays a media object and its options.
+ */
+class MediaObjectComponent extends React.Component {
     constructor(props) {
         super(props);
+        this.onRemoveRequested = () => { console.log("remove requested."); }
     }
 
     render() {
         const removeCNames = joinStyles(STYLE["display-"] + "right",
             STYLE["button-circle"]);
-        return <li>
-            <div className={STYLE["panel"]}>
+        return <li className={STYLE["panel"]}>
                 <span className={STYLE["display-"] + "middle"}>{this.props.url}</span>
-                <button className={removeCNames}>&times;</button>
-            </div>
-        </li>;
+                <Button type={removeCNames}
+                    text={"\&times"}
+                    onClick={this.onRemoveRequested} />
+            </li>;
     }
 }
 
@@ -260,14 +312,18 @@ class QueueRoot extends React.Component {
             queue: [], // Queue of media objects
             deltaNumber: 0 // Client delta number
         };
+        this.recieveGreet = this.recieveGreet.bind(this);
+        this.performDelta = this.performDelta.bind(this);
     }
 
     /**
-     * Perform a given delta.
+     * Perform a given delta on the local queue. This does not
+     * perform any socket communications.
+     * 
+     * @param delta Delta number.
+     * @see DELTA.md
      */
     performDelta(delta) {
-        // TODO: Use more "scalable (?)" solution
-        // This is temporary
         console.log("got good delta response: " + JSON.stringify(delta));
         switch (delta.action) {
             case 1:
@@ -287,47 +343,45 @@ class QueueRoot extends React.Component {
     }
 
     componentDidMount() { // Add socket listeners
-        socket = io(); // Server connection (temporary)
+        addListener("greet", this.recieveGreet);
 
-        let that = this;
-        addListener("greet", function(data) {
-            console.log("Recieved greet");
-            that.setState((state, props) => {
-                // Map all media to MediaObjects
-                const fixedMap = data.queue.map((mediaObj) => {
-                    return <MediaObject url={mediaObj.url} />;
-                });
-                // Return as new state
-                return {
-                    queue: fixedMap,
-                    deltaNumber: data.delta // Align with server delta
-                };
-            });
-        });
-
-        addListener("good delta", d => this.performDelta(d));
-        addListener("delta update", d => this.performDelta(d));
+        addListener("good delta", this.performDelta);
+        addListener("delta update", this.performDelta);
 
         addListener("bad delta", function(deltas) {
             // TODO
-            console.log("got bad delta response");
+            console.warn("got bad delta response");
         });
+
+        // Now greet the server
+        emit("get all");
+    }
+
+    /**
+     * Handle greeting from server.
+     * @param data Greet data.
+     */
+    recieveGreet(data) {
+        this.setMediaObjects(data.queue);
+        this.setState({ deltaNumber: data.delta });
     }
 
     /**
      * Add media to the queue.
      * 
-     * @param {Object} media Media object to add. Not MediaObject!
+     * @param media Media object to add. Not MediaObject!
      */
     add(media) {
-        // Possibly hold off pushing as MediaObject until later?????
-        // Doing something like that may fix the react warning about keys
-        this.state.queue.push(<MediaObject url={media.url} />);
+        this.state.queue.push(media);
         this.incrementDelta();
     }
 
     // TODO: Support all DELTA commands
 
+    /**
+     * Delete media at index.
+     * @param index Index of media object to delete.
+     */
     deleteAt(index) {
         this.state.queue.splice(index, 1);
         this.incrementDelta();
@@ -345,25 +399,32 @@ class QueueRoot extends React.Component {
      * Increase the delta number by 1.
      */
     incrementDelta() {
-        this.setState((state, props) => ({
+        this.setState((state) => ({
             deltaNumber: state.deltaNumber + 1
-        }));
+        })); 
+    }
+
+    /**
+     * Set the list of media objects in queue.
+     */
+    setMediaObjects(list) {
+        if (list && Array.isArray(list)) {
+            this.setState(() => ({ queue: list }));
+        }
     }
 
     render() {
-        return <div>
-            <ul>
-                {this.state.queue}
-            </ul>
-            </div>;
+        return <ul>
+                {
+                    this.state.queue.map(media => (
+                        <MediaObjectComponent url={media.url} />
+                    ))
+                }
+            </ul>;
     }
 }
 
 // Finally, render roots
-ReactDOM.render(<ControlRoot
-    pauseText={"Pause"}
-    playText={"Play"}
-    nextText={"Next"}
-    />, document.getElementById("controlRoot"));
+ReactDOM.render(<ControlRoot />, document.getElementById("controlRoot"));
 ReactDOM.render(<QueueRoot />,
     document.getElementById("queueRoot"));

@@ -4,11 +4,25 @@ In order to keep client and server queues synchronized, the client and server ar
 
 This project utilizes (socket.io)[https://socket.io/] for socket communications.
 
+### Media Object
+
+A media object is data that the user desires to be played. It should be expressed as an object like so:
+
+```js
+{
+    "url": String,
+    "uid": String
+}
+```
+
+* Where __url__ is the URL to the media source.
+* Where __uid__ is the unique identifier of the media object.
+
 ## On initial connection
 
 ### Server-control client connection
 
-Once the server accepts the client's connection, the server emits a `"greet"` with the queue and the server delta number.
+Once the server accepts the client's connection, the client can emit `"get all"` to be up to date with the master queue.
 
 ### Server-media client connection
 
@@ -26,7 +40,7 @@ Client requests the entire queue and the delta number. Server should then emit `
 
 __To__ all clients __from__ server.
 
-Broadcast new delta to all clients. The data is the same as a delta object.
+Broadcast new delta to all clients. The data is a delta object.
 
 ### `"greet"`
 
@@ -69,13 +83,19 @@ _See `DELTA.md` for further information on deltas_
 
 __To__ client __from__ server.
 
-Response to client if the proposed delta is valid and added.
+Response to client if the proposed delta is valid and added. Server should respond with new delta number.
+
+__data:__
+
+```js
+int
+```
 
 ### `"bad delta"`
 
 __To__ client __from__ server.
 
-Response to client if the proposed delta is invalid and ignored. Server responds with the same data a `"delta update"` would yield to the client.
+Response to client if the proposed delta is invalid and ignored. Server responds with the same data as `"delta update"` would yield to the client.
 
 ### `"pause"`
 
@@ -97,7 +117,7 @@ Request server to skip to next media in queue.
 
 ## Socket events to listen for (server-media client)
 
-All events here are __to__ client __from__ server.
+All events here are __to__ media client __from__ server.
 
 ### `"play"`
 
@@ -111,21 +131,9 @@ __To__ server __from__ client.
 
 Pause the current media.
 
-## Socket events to listen for (server-media client)
+## Socket events to listen for (media-server client)
 
-### `"set url"`
-
-__To__ client __from__ server.
-
-Set the current URL source of the media.
-
-__data:__
-
-```js
-{
-    "url": String
-}
-```
+All events here are __to__ server __from__ media client.
 
 ### `"play"`
 

@@ -23258,6 +23258,8 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 var STYLE = Object.freeze({
   "button": "w3-button",
   "button-circle": "w3-circle",
+  "mobile": "w3-mobile",
+  // Responsive
   "bar": "w3-bar",
   "div": "w3-container",
   "panel": "w3-panel w3-display-container",
@@ -23279,7 +23281,7 @@ function joinStyles() {
 } // Control client socket
 
 
-var socket = null; // Will not connect until QueueRoot loaded
+var socket = io(); // Will not connect until QueueRoot loaded
 
 var deltaNumber = 0;
 /**
@@ -23309,6 +23311,13 @@ function addListener(event, fn) {
     socket.on(event, fn);
   }
 }
+
+var Button = function Button(props) {
+  return _react.default.createElement("button", {
+    className: props.type || STYLE["button"],
+    onClick: props.onClick
+  }, props.text);
+};
 /**
  * Text field component. This renders an <input>.
  */
@@ -23319,6 +23328,11 @@ var TextField =
 function (_React$Component) {
   _inherits(TextField, _React$Component);
 
+  /**
+   * @constructor
+   * Significant prop:
+   * valueListener = Function that recieves updated value of text.
+   */
   function TextField(props) {
     var _this;
 
@@ -23440,10 +23454,10 @@ function (_React$Component2) {
       }, _react.default.createElement(TextField, {
         ref: this.fieldRef,
         valueListener: this.valueListener
-      }), _react.default.createElement("button", {
-        className: STYLE["button"],
-        onClick: this.onClick
-      }, this.getButtonName()));
+      }), _react.default.createElement(Button, {
+        onClick: this.onClick,
+        text: this.getButtonName()
+      }));
     }
   }]);
 
@@ -23496,18 +23510,80 @@ function (_React$Component3) {
     key: "render",
     value: function render() {
       return _react.default.createElement("div", {
-        className: STYLE["div"]
-      }, _react.default.createElement("button", {
-        className: STYLE["button-circle"],
-        onClick: this.decreaseClick
-      }, "-"), _react.default.createElement("button", {
-        className: STYLE["button-circle"],
-        onClick: this.increaseClick
-      }, "+"));
+        className: STYLE["bar"]
+      }, _react.default.createElement(Button, {
+        type: STYLE["button-circle"],
+        onClick: this.decreaseClick,
+        text: "-"
+      }), _react.default.createElement(Button, {
+        type: STYLE["button-circle"],
+        onClick: this.increaseClick,
+        text: "+"
+      }));
     }
   }]);
 
   return VolumeController;
+}(_react.default.Component);
+/**
+ * Display and handle playback options, including play, pause, and next.
+ */
+
+
+var PlaybackController =
+/*#__PURE__*/
+function (_React$Component4) {
+  _inherits(PlaybackController, _React$Component4);
+
+  /**
+   * @constructor
+   * Significant props (all have defaults):
+   * onPauseClick - Callback on pause clicked.
+   * onPlayClick - Callback on play clicked.
+   * onNextClick - Callback okn next clicked.
+   * pauseText - Pause button text.
+   * playText - Play button text.
+   * nextText - Next button text.
+   */
+  function PlaybackController(props) {
+    var _this4;
+
+    _classCallCheck(this, PlaybackController);
+
+    _this4 = _possibleConstructorReturn(this, _getPrototypeOf(PlaybackController).call(this, props));
+
+    var DEFAULT_CALLBACK = function DEFAULT_CALLBACK() {
+      return console.warn("No callback on click.");
+    };
+
+    _this4.onPauseClick = props.onPauseClick || DEFAULT_CALLBACK;
+    _this4.onPlayClick = props.onPlayClick || DEFAULT_CALLBACK;
+    _this4.onNextClick = props.onNextClick || DEFAULT_CALLBACK;
+    _this4.pauseText = props.pauseText || "Pause";
+    _this4.playText = props.playText || "Play";
+    _this4.nextText = props.nextText || "Next";
+    return _this4;
+  }
+
+  _createClass(PlaybackController, [{
+    key: "render",
+    value: function render() {
+      return _react.default.createElement("div", {
+        className: "bar"
+      }, _react.default.createElement(Button, {
+        onClick: this.onPauseClick,
+        text: this.pauseText
+      }), _react.default.createElement(Button, {
+        onClick: this.onPlayClick,
+        text: this.playText
+      }), _react.default.createElement(Button, {
+        onClick: this.onNextClick,
+        text: this.nextText
+      }));
+    }
+  }]);
+
+  return PlaybackController;
 }(_react.default.Component);
 /**
  * Control root component. Here goes all the input components
@@ -23519,30 +23595,29 @@ function (_React$Component3) {
 
 var ControlRoot =
 /*#__PURE__*/
-function (_React$Component4) {
-  _inherits(ControlRoot, _React$Component4);
+function (_React$Component5) {
+  _inherits(ControlRoot, _React$Component5);
 
   function ControlRoot(props) {
-    var _this4;
+    var _this5;
 
     _classCallCheck(this, ControlRoot);
 
-    _this4 = _possibleConstructorReturn(this, _getPrototypeOf(ControlRoot).call(this, props));
+    _this5 = _possibleConstructorReturn(this, _getPrototypeOf(ControlRoot).call(this, props));
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onPauseClick", function () {
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this5)), "onPauseClick", function () {
       emit("pause");
     });
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onPlayClick", function () {
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this5)), "onPlayClick", function () {
       emit("play");
     });
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onNextClick", function () {
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this5)), "onNextClick", function () {
       emit("next");
     });
 
-    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this4)), "onSubmit", function (value) {
-      console.log("Submitted: " + value);
+    _defineProperty(_assertThisInitialized(_assertThisInitialized(_this5)), "onSubmit", function (value) {
       emit("propose", {
         action: 3,
         media: {
@@ -23551,7 +23626,7 @@ function (_React$Component4) {
       });
     });
 
-    return _this4;
+    return _this5;
   }
 
   _createClass(ControlRoot, [{
@@ -23560,16 +23635,11 @@ function (_React$Component4) {
       return _react.default.createElement("div", {
         className: STYLE["bar"],
         id: "controlRoot"
-      }, _react.default.createElement("button", {
-        className: STYLE["button"],
-        onClick: this.onPauseClick
-      }, this.props.pauseText), _react.default.createElement("button", {
-        className: STYLE["button"],
-        onClick: this.onPlayClick
-      }, this.props.playText), _react.default.createElement("button", {
-        className: STYLE["button"],
-        onClick: this.onNextClick
-      }, this.props.nextText), _react.default.createElement(VolumeController, null), _react.default.createElement(TextSubmitter, {
+      }, _react.default.createElement(PlaybackController, {
+        onPauseClick: this.onPauseClick,
+        onPlayClick: this.onPlayClick,
+        onNextClick: this.onNextClick
+      }), _react.default.createElement(VolumeController, null), _react.default.createElement(TextSubmitter, {
         onSubmit: this.onSubmit
       }));
     }
@@ -23579,33 +23649,48 @@ function (_React$Component4) {
 }(_react.default.Component);
 /* Set up queue root */
 
+/**
+ * Displays a media object and its options.
+ */
 
-var MediaObject =
+
+var MediaObjectComponent =
 /*#__PURE__*/
-function (_React$Component5) {
-  _inherits(MediaObject, _React$Component5);
+function (_React$Component6) {
+  _inherits(MediaObjectComponent, _React$Component6);
 
-  function MediaObject(props) {
-    _classCallCheck(this, MediaObject);
+  function MediaObjectComponent(props) {
+    var _this6;
 
-    return _possibleConstructorReturn(this, _getPrototypeOf(MediaObject).call(this, props));
+    _classCallCheck(this, MediaObjectComponent);
+
+    _this6 = _possibleConstructorReturn(this, _getPrototypeOf(MediaObjectComponent).call(this, props));
+    console.log("Media object: " + props.url);
+
+    _this6.onRemoveRequested = function () {
+      console.log("remove requested.");
+    };
+
+    return _this6;
   }
 
-  _createClass(MediaObject, [{
+  _createClass(MediaObjectComponent, [{
     key: "render",
     value: function render() {
       var removeCNames = joinStyles(STYLE["display-"] + "right", STYLE["button-circle"]);
-      return _react.default.createElement("li", null, _react.default.createElement("div", {
+      return _react.default.createElement("li", {
         className: STYLE["panel"]
       }, _react.default.createElement("span", {
         className: STYLE["display-"] + "middle"
-      }, this.props.url), _react.default.createElement("button", {
-        className: removeCNames
-      }, "\xD7")));
+      }, this.props.url), _react.default.createElement(Button, {
+        type: removeCNames,
+        text: "\&times",
+        onClick: this.onRemoveRequested
+      }));
     }
   }]);
 
-  return MediaObject;
+  return MediaObjectComponent;
 }(_react.default.Component);
 /**
  * Root component of the queue viewer. All media objects
@@ -23615,33 +23700,37 @@ function (_React$Component5) {
 
 var QueueRoot =
 /*#__PURE__*/
-function (_React$Component6) {
-  _inherits(QueueRoot, _React$Component6);
+function (_React$Component7) {
+  _inherits(QueueRoot, _React$Component7);
 
   function QueueRoot(props) {
-    var _this5;
+    var _this7;
 
     _classCallCheck(this, QueueRoot);
 
-    _this5 = _possibleConstructorReturn(this, _getPrototypeOf(QueueRoot).call(this, props));
-    _this5.state = {
+    _this7 = _possibleConstructorReturn(this, _getPrototypeOf(QueueRoot).call(this, props));
+    _this7.state = {
       queue: [],
       // Queue of media objects
       deltaNumber: 0 // Client delta number
 
     };
-    return _this5;
+    _this7.recieveGreet = _this7.recieveGreet.bind(_assertThisInitialized(_assertThisInitialized(_this7)));
+    _this7.performDelta = _this7.performDelta.bind(_assertThisInitialized(_assertThisInitialized(_this7)));
+    return _this7;
   }
   /**
-   * Perform a given delta.
+   * Perform a given delta on the local queue. This does not
+   * perform any socket communications.
+   * 
+   * @param delta Delta number.
+   * @see DELTA.md
    */
 
 
   _createClass(QueueRoot, [{
     key: "performDelta",
     value: function performDelta(delta) {
-      // TODO: Use more "scalable (?)" solution
-      // This is temporary
       console.log("got good delta response: " + JSON.stringify(delta));
 
       switch (delta.action) {
@@ -23667,58 +23756,47 @@ function (_React$Component6) {
   }, {
     key: "componentDidMount",
     value: function componentDidMount() {
-      var _this6 = this;
-
       // Add socket listeners
-      socket = io(); // Server connection (temporary)
-
-      var that = this;
-      addListener("greet", function (data) {
-        console.log("Recieved greet");
-        that.setState(function (state, props) {
-          // Map all media to MediaObjects
-          var fixedMap = data.queue.map(function (mediaObj) {
-            return _react.default.createElement(MediaObject, {
-              url: mediaObj.url
-            });
-          }); // Return as new state
-
-          return {
-            queue: fixedMap,
-            deltaNumber: data.delta // Align with server delta
-
-          };
-        });
-      });
-      addListener("good delta", function (d) {
-        return _this6.performDelta(d);
-      });
-      addListener("delta update", function (d) {
-        return _this6.performDelta(d);
-      });
+      addListener("greet", this.recieveGreet);
+      addListener("good delta", this.performDelta);
+      addListener("delta update", this.performDelta);
       addListener("bad delta", function (deltas) {
         // TODO
-        console.log("got bad delta response");
-      }); // Request to get current queue info
+        console.warn("got bad delta response");
+      }); // Now greet the server
 
       emit("get all");
     }
     /**
+     * Handle greeting from server.
+     * @param data Greet data.
+     */
+
+  }, {
+    key: "recieveGreet",
+    value: function recieveGreet(data) {
+      this.setMediaObjects(data.queue);
+      this.setState({
+        deltaNumber: data.delta
+      });
+    }
+    /**
      * Add media to the queue.
      * 
-     * @param {Object} media Media object to add. Not MediaObject!
+     * @param media Media object to add. Not MediaObject!
      */
 
   }, {
     key: "add",
     value: function add(media) {
-      // Possibly hold off pushing as MediaObject until later?????
-      // Doing something like that may fix the react warning about keys
-      this.state.queue.push(_react.default.createElement(MediaObject, {
-        url: media.url
-      }));
+      this.state.queue.push(media);
       this.incrementDelta();
     } // TODO: Support all DELTA commands
+
+    /**
+     * Delete media at index.
+     * @param index Index of media object to delete.
+     */
 
   }, {
     key: "deleteAt",
@@ -23743,16 +23821,36 @@ function (_React$Component6) {
   }, {
     key: "incrementDelta",
     value: function incrementDelta() {
-      this.setState(function (state, props) {
+      this.setState(function (state) {
         return {
           deltaNumber: state.deltaNumber + 1
         };
       });
     }
+    /**
+     * Set the list of media objects in queue.
+     */
+
+  }, {
+    key: "setMediaObjects",
+    value: function setMediaObjects(list) {
+      if (list && Array.isArray(list)) {
+        this.setState(function () {
+          return {
+            queue: list
+          };
+        });
+      }
+    }
   }, {
     key: "render",
     value: function render() {
-      return _react.default.createElement("div", null, _react.default.createElement("ul", null, this.state.queue));
+      console.log("rendering queue");
+      return _react.default.createElement("ul", null, this.state.queue.map(function (media) {
+        return _react.default.createElement(MediaObjectComponent, {
+          url: media.url
+        });
+      }));
     }
   }]);
 
@@ -23760,11 +23858,7 @@ function (_React$Component6) {
 }(_react.default.Component); // Finally, render roots
 
 
-_reactDom.default.render(_react.default.createElement(ControlRoot, {
-  pauseText: "Pause",
-  playText: "Play",
-  nextText: "Next"
-}), document.getElementById("controlRoot"));
+_reactDom.default.render(_react.default.createElement(ControlRoot, null), document.getElementById("controlRoot"));
 
 _reactDom.default.render(_react.default.createElement(QueueRoot, null), document.getElementById("queueRoot"));
 
