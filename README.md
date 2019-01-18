@@ -1,25 +1,31 @@
-#Lazy Remote Player
+Lazy Remote Player
 ==================
 
 Server to play multiple types of media (online or local) from a queue.
 
-#Setup
+# Setup
 =====
 
-##Install
+## Install
 
 `npm install`
 
-##Port setup
+## Port setup
 
-`PORT=12345`
+Uses environment variable PORT.
+
+`PORT=12345 npm start`
 
 If not set, defaults to `3000`.
 
-##Run
+## Run
 
 `npm start`
 
-##Use
+## Use
 
-Connect to `localhost:PORT`, where `PORT` is whatever port you set it to. You could perhaps portforward your host device so you could use it externally, however, no security features are currently implemented (passwords/accounts etc.).
+Connect to the host machine (e.g. `localhost:3000`) via your favorite browser. Request `/media` to connect a media client, otherwise other connections will be considered as a control client.
+
+## Debug messages
+
+You can set `DEBUG=` to `comm:<media | control | master>` and/or `queue` to get debug messages.
