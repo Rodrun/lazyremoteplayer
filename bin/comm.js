@@ -4,13 +4,14 @@
  */
 
 var queue = require("../queue.js");
+var controlDbg = require("debug")("comm:control");
+var mediaDbg = require("debug")("comm:media");
+var debug = require("debug")("comm:master");
 
 module.exports = (server) => {
 
 if (!server) {
     throw "HTTP Server must be given for comms to work.";
-} else {
-    console.log("COMM active");
 }
 
 /**
@@ -29,9 +30,10 @@ var volume = 1; // Media client volume
  */
 function mediaClientEmit(mc, event, data) {
   try {
-    mc.emit(event, data);
+    if (mc)
+      mc.emit(event, data);
   } catch (err) {
-    console.log("Error occurred on socket.emit: " + err);
+    mediaDbg("Error occurred on socket.emit: " + err);
   }
 }
 /**
@@ -40,10 +42,13 @@ function mediaClientEmit(mc, event, data) {
  * @param socket Socket object.
  */
 function emitGreet(socket) {
-  socket.emit("greet", {
-    "queue": queue.queue,
-    "delta": queue.getDeltaNumber()
-  });
+  if (socket)
+    socket.emit("greet", {
+      "queue": queue.queue,
+      "delta": queue.getDeltaNumber()
+    });
+  else
+    debug("attempted to emit with null socket");
 }
 
 /**
@@ -85,6 +90,7 @@ function clampTo(x, min, max) {
  * @param {Boolean} include Also emit to given socket.
  */
 function emitDeltaUpdate(socket, d, include) {
+  debug("emitting delta update")
   if (socket) {
     socket.broadcast.emit("delta update", d);
     if (include) {
@@ -99,13 +105,13 @@ io.on("connection", function(socket) {
   var isMediaClient = socket.handshake.query.mediaClient;
   // Only allow one media client to have an active connection
   if (isMediaClient && mediaClient) {
-    console.log("Disconnecting attempted media client");
+    debug("Disconnecting attempted media client");
     socket.disconnect(true);
   }
   
   if (!isMediaClient) {
     /* CLIENT EVENTS */
-    console.log("CLIENT control connected");
+    controlDbg("new control connected");
 
     socket.on("get all", function(data) {
       emitGreet(socket);
@@ -113,15 +119,14 @@ io.on("connection", function(socket) {
   
     // Client wants to add a delta (change to queue)
     socket.on("propose", function(data) {
-      console.log("CLIENT proposed: " + JSON.stringify(data));
+      controlDbg("proposed: " + JSON.stringify(data));
       queue.performDelta(data).then((newDelta) => {
-        console.log("COMM good delta accepted");
         socket.emit("good delta", newDelta);
         // Notify everyone about the new delta
         emitDeltaUpdate(socket, newDelta);
       },
       (err) => {
-        console.error("proposal error: " + err);
+        controlDbg("proposal error: " + err);
         // TODO: use diff
         socket.emit("bad delta");
       });
@@ -148,7 +153,7 @@ io.on("connection", function(socket) {
 
     socket.on("volume edit", function(vol) {
       // Shallow validation
-      console.log("CLIENT recieved vol = " + vol);
+      controlDbg("requested vol = " + vol);
       if (t(vol).isNumber) {
         if (withinBounds(Math.abs(vol), 0, 1)) {
           volume = clampTo(volume + vol, 0, 1);
@@ -159,7 +164,7 @@ io.on("connection", function(socket) {
     });
   } else {
     /* MEDIA CLIENT EVENTS */
-    console.log("MEDIA client connected");
+    mediaDbg("client connected");
     mediaClient = socket;
 
     // Only initially let know of the current if there is one
@@ -169,19 +174,19 @@ io.on("connection", function(socket) {
     socket.on("media ended", function() {
       // Auto play next (if any)
       queue.proceedToNext((newDelta) => {
-        console.log("COMM auto-playing next in queue");
+        debug("auto-playing next in queue");
         emitDeltaUpdate(socket, newDelta);
         mediaClientEmit(mediaClient, "set url", queue.getCurrent().url);
       }, () => {});
     });
 
     socket.on("disconnect", function() {
-      console.log("MEDIA client disconnected!");
+      mediaDbg("client disconnected!");
       mediaClient = null; // Allow new media client
     });
 
     socket.on("error", function(err) {
-      console.log("MEDIA client error: " + err);
+      mediaDbg("client error: " + err);
     });
   }
 });

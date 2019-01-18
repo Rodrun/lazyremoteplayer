@@ -7,6 +7,7 @@
 
 const uuidv1 = require("uuid/v1"); // TODO
 var t = require("typy");
+var debug = require("debug")("queue");
 
 /**
  * The maximum amount of stored deltas permissible at once. This
@@ -218,7 +219,7 @@ function isValidDelta(d) {
                 try {
                     return ACTION_PROPS["" + d.action](d);
                 } catch (TypeError) {
-                    console.debug("Invalid delta action: " + d.action);
+                    debug("Invalid delta action: " + d.action);
                 }
             }
         }
@@ -436,11 +437,13 @@ module.exports = {
                 ACTION_NAMES["" + d.action](d); // Perform delta action
                 const success = prevDelta != this.getDeltaNumber();
                 if (success) {
+                    debug("successfully carried out delta operation");
                     resolve(d);
                 } else {
                     reject(Error("could not perform delta."));
                 }
             } else {
+                debug("rejected recieved delta");
                 reject(Error("delta is invalid."));
             }
         });
@@ -451,15 +454,17 @@ module.exports = {
      * 
      * @param {Function} cb Callback on success. Same function used in
      *      performDelta().then(...).
-     * @param {FunctioN} ocb Callback when queue length is 1. Given parameter is the
+     * @param {Function} ocb Callback when queue length is 1. Given parameter is the
      *      current media object.
      * @see performDelta
      */
     proceedToNext: function(cb, ocb) {
         if (this.getQueueLength() > 1) {
             // There is another element next
+            debug("proceeding to next media object");
             this.performDelta(createDelta(1, [0])).then(cb); // Pop front
         } else if (this.getQueueLength() == 1) {
+            debug("only 1 media object, returning current");
             ocb(this.getCurrent());
         }
     },

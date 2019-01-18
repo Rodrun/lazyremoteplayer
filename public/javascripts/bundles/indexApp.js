@@ -23665,7 +23665,6 @@ function (_React$Component6) {
     _classCallCheck(this, MediaObjectComponent);
 
     _this6 = _possibleConstructorReturn(this, _getPrototypeOf(MediaObjectComponent).call(this, props));
-    console.log("Media object: " + props.url);
 
     _this6.onRemoveRequested = function () {
       console.log("remove requested.");
@@ -23845,7 +23844,6 @@ function (_React$Component7) {
   }, {
     key: "render",
     value: function render() {
-      console.log("rendering queue");
       return _react.default.createElement("ul", null, this.state.queue.map(function (media) {
         return _react.default.createElement(MediaObjectComponent, {
           url: media.url

@@ -147,6 +147,18 @@ __To__ client __from__ server.
 
 Pause media.
 
+### `"set url"`
+
+__To__ client __from__ server.
+
+Set the current media URL. Server should give a string of the URL.
+
+__data:__
+
+```js
+String
+```
+
 ### `"volume"`
 
 Both client and server can send/recieve.
