@@ -31,7 +31,11 @@ server.on('error', onError);
 server.on('listening', onListening);
 
 // Start communications (comm)
-comm(server);
+try {
+  comm(server);
+} catch (err) {
+  debug("Uncaught comm error occurred: " + err);
+}
 
 /**
  * Normalize a port into a number, string, or false.

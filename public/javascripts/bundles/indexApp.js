@@ -23254,34 +23254,8 @@ function _assertThisInitialized(self) { if (self === void 0) { throw new Referen
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
-/* Style/classes constants */
-var STYLE = Object.freeze({
-  "button": "w3-button",
-  "button-circle": "w3-circle",
-  "mobile": "w3-mobile",
-  // Responsive
-  "bar": "w3-bar",
-  "div": "w3-container",
-  "panel": "w3-panel w3-display-container",
-  "display-": "w3-display-" // Prefix for display classes
-
-});
-/**
- * Combine multiple styles as one string.
- *
- * @param  {...any} styles Class names to join.
- */
-
-function joinStyles() {
-  for (var _len = arguments.length, styles = new Array(_len), _key = 0; _key < _len; _key++) {
-    styles[_key] = arguments[_key];
-  }
-
-  return styles.join(" ");
-} // Control client socket
-
-
-var socket = io(); // Will not connect until QueueRoot loaded
+// Control client socket
+var socket = null; // Will not connect until QueueRoot loaded
 
 var deltaNumber = 0;
 /**
@@ -23295,7 +23269,7 @@ function emit(event, data) {
   if (socket) {
     socket.emit(event, data);
   } else {
-    console.log("could not emit due to invalid socket");
+    console.log("could not emit due to null socket");
   }
 }
 /**
@@ -23311,10 +23285,15 @@ function addListener(event, fn) {
     socket.on(event, fn);
   }
 }
+/**
+ * Simple button.
+ */
+
 
 var Button = function Button(props) {
   return _react.default.createElement("button", {
-    className: props.type || STYLE["button"],
+    style: props.style || {},
+    className: props.type || "",
     onClick: props.onClick
   }, props.text);
 };
@@ -23450,12 +23429,13 @@ function (_React$Component2) {
     key: "render",
     value: function render() {
       return _react.default.createElement("div", {
-        className: STYLE["bar"]
+        className: "flex-container"
       }, _react.default.createElement(TextField, {
         ref: this.fieldRef,
         valueListener: this.valueListener
       }), _react.default.createElement(Button, {
         onClick: this.onClick,
+        type: "flex-item",
         text: this.getButtonName()
       }));
     }
@@ -23509,14 +23489,10 @@ function (_React$Component3) {
   }, {
     key: "render",
     value: function render() {
-      return _react.default.createElement("div", {
-        className: STYLE["bar"]
-      }, _react.default.createElement(Button, {
-        type: STYLE["button-circle"],
+      return _react.default.createElement(_react.default.Fragment, null, _react.default.createElement(Button, {
         onClick: this.decreaseClick,
         text: "-"
       }), _react.default.createElement(Button, {
-        type: STYLE["button-circle"],
         onClick: this.increaseClick,
         text: "+"
       }));
@@ -23569,7 +23545,7 @@ function (_React$Component4) {
     key: "render",
     value: function render() {
       return _react.default.createElement("div", {
-        className: "bar"
+        id: "playbackContainer"
       }, _react.default.createElement(Button, {
         onClick: this.onPauseClick,
         text: this.pauseText
@@ -23633,7 +23609,6 @@ function (_React$Component5) {
     key: "render",
     value: function render() {
       return _react.default.createElement("div", {
-        className: STYLE["bar"],
         id: "controlRoot"
       }, _react.default.createElement(PlaybackController, {
         onPauseClick: this.onPauseClick,
@@ -23659,31 +23634,31 @@ var MediaObjectComponent =
 function (_React$Component6) {
   _inherits(MediaObjectComponent, _React$Component6);
 
+  /**
+   * @constructor
+   * Required props:
+   * - onRemoveRequested = Callback when the remove button is clicked.
+   */
   function MediaObjectComponent(props) {
     var _this6;
 
     _classCallCheck(this, MediaObjectComponent);
 
     _this6 = _possibleConstructorReturn(this, _getPrototypeOf(MediaObjectComponent).call(this, props));
-
-    _this6.onRemoveRequested = function () {
-      console.log("remove requested.");
-    };
-
+    _this6.onRemoveRequested = props.onRemoveRequested;
     return _this6;
   }
 
   _createClass(MediaObjectComponent, [{
     key: "render",
     value: function render() {
-      var removeCNames = joinStyles(STYLE["display-"] + "right", STYLE["button-circle"]);
       return _react.default.createElement("li", {
-        className: STYLE["panel"]
-      }, _react.default.createElement("span", {
-        className: STYLE["display-"] + "middle"
-      }, this.props.url), _react.default.createElement(Button, {
-        type: removeCNames,
-        text: "\&times",
+        className: "mediaObject"
+      }, _react.default.createElement("span", null, this.props.url), _react.default.createElement(Button, {
+        style: {
+          objectPosition: "right"
+        },
+        text: _react.default.createElement("span", null, "\xD7"),
         onClick: this.onRemoveRequested
       }));
     }
@@ -23692,7 +23667,7 @@ function (_React$Component6) {
   return MediaObjectComponent;
 }(_react.default.Component);
 /**
- * Root component of the queue viewer. All media objects
+ * Root component of the queue viewer. All  media objects
  * will be displayed here.
  */
 
@@ -23756,6 +23731,7 @@ function (_React$Component7) {
     key: "componentDidMount",
     value: function componentDidMount() {
       // Add socket listeners
+      socket = io();
       addListener("greet", this.recieveGreet);
       addListener("good delta", this.performDelta);
       addListener("delta update", this.performDelta);
@@ -23841,12 +23817,43 @@ function (_React$Component7) {
         });
       }
     }
+    /**
+     * Emit a proposal to the master queue.
+     */
+
+  }, {
+    key: "propose",
+    value: function propose(delta) {
+      emit("propose", delta);
+    }
+    /**
+     * Emit a delete proposal to the master queue.
+     */
+
+  }, {
+    key: "proposeDeleteAt",
+    value: function proposeDeleteAt(index) {
+      if (index >= 0 && index < this.state.queue.length) {
+        this.propose({
+          action: 1,
+          indexes: [index]
+        });
+      } else {
+        console.warn("Invalid request to delete invalid index " + index);
+      }
+    }
   }, {
     key: "render",
     value: function render() {
-      return _react.default.createElement("ul", null, this.state.queue.map(function (media) {
+      var _this8 = this;
+
+      return _react.default.createElement("ul", null, this.state.queue.map(function (media, i) {
         return _react.default.createElement(MediaObjectComponent, {
-          url: media.url
+          index: i,
+          url: media.url,
+          onRemoveRequested: function onRemoveRequested() {
+            return _this8.proposeDeleteAt(i);
+          }
         });
       }));
     }

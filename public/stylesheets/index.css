@@ -1,0 +1,19 @@
+/* Control client stylesheet */
+
+#playbackContainer {
+    display: flex;
+    width: 100%;
+}
+
+#playbackContainer > button {
+    flex: 1 0 auto;
+}
+
+button {
+    background-color: #403939;
+    color: #e7dede;
+}
+
+.mediaObject {
+    background-color: #5f5f5f;
+}

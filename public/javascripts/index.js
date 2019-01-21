@@ -2,28 +2,8 @@
 import React from "react";
 import ReactDOM from "react-dom";
 
-/* Style/classes constants */
-const STYLE = Object.freeze({
-    "button": "w3-button",
-    "button-circle": "w3-circle",
-    "mobile": "w3-mobile", // Responsive
-    "bar": "w3-bar",
-    "div": "w3-container",
-    "panel": "w3-panel w3-display-container",
-    "display-": "w3-display-" // Prefix for display classes
-});
-
-/**
- * Combine multiple styles as one string.
- *
- * @param  {...any} styles Class names to join.
- */
-function joinStyles(...styles) {
-    return styles.join(" ");
-}
-
 // Control client socket
-var socket = io(); // Will not connect until QueueRoot loaded
+var socket = null; // Will not connect until QueueRoot loaded
 var deltaNumber = 0;
 
 /**
@@ -36,7 +16,7 @@ function emit(event, data) {
     if (socket) {
         socket.emit(event, data);
     } else {
-        console.log("could not emit due to invalid socket");
+        console.log("could not emit due to null socket");
     }
 }
 
@@ -52,9 +32,13 @@ function addListener(event, fn) {
     }
 }
 
+/**
+ * Simple button.
+ */
 const Button = props =>
     <button
-        className={props.type || STYLE["button"]}
+        style={props.style || {}}
+        className={props.type || ""}
         onClick={props.onClick}>
             {props.text}
     </button>;
@@ -144,12 +128,13 @@ class TextSubmitter extends React.Component {
     }
 
     render() {
-        return <div className={STYLE["bar"]}>
+        return <div className={"flex-container"}>
             <TextField
                 ref={this.fieldRef}
                 valueListener={this.valueListener} />
             <Button
                 onClick={this.onClick}
+                type={"flex-item"}
                 text={this.getButtonName()} />
             </div>;
     }
@@ -184,16 +169,14 @@ class VolumeController extends React.Component {
     }
 
     render() {
-        return <div className={STYLE["bar"]}>
+        return <>
             <Button
-                type={STYLE["button-circle"]}
                 onClick={this.decreaseClick}
                 text={"-"} />
             <Button
-                type={STYLE["button-circle"]}
                 onClick={this.increaseClick}
                 text={"+"} />
-            </div>;
+            </>;
     }
 }
 
@@ -223,7 +206,7 @@ class PlaybackController extends React.Component {
     }
 
     render() {
-        return <div className={"bar"}>
+        return <div id={"playbackContainer"}>
             <Button onClick={this.onPauseClick} text={this.pauseText} />
             <Button onClick={this.onPlayClick} text={this.playText} />
             <Button onClick={this.onNextClick} text={this.nextText} />
@@ -266,7 +249,7 @@ class ControlRoot extends React.Component {
     }
 
     render() {
-        return <div className={STYLE["bar"]} id="controlRoot">
+        return <div id="controlRoot">
             <PlaybackController
                 onPauseClick={this.onPauseClick}
                 onPlayClick={this.onPlayClick}
@@ -284,25 +267,29 @@ class ControlRoot extends React.Component {
  * Displays a media object and its options.
  */
 class MediaObjectComponent extends React.Component {
+    /**
+     * @constructor
+     * Required props:
+     * - onRemoveRequested = Callback when the remove button is clicked.
+     */
     constructor(props) {
         super(props);
-        this.onRemoveRequested = () => { console.log("remove requested."); }
+        this.onRemoveRequested = props.onRemoveRequested;
     }
 
     render() {
-        const removeCNames = joinStyles(STYLE["display-"] + "right",
-            STYLE["button-circle"]);
-        return <li className={STYLE["panel"]}>
-                <span className={STYLE["display-"] + "middle"}>{this.props.url}</span>
-                <Button type={removeCNames}
-                    text={"\&times"}
+        return <li className={"mediaObject"}>
+                <span>{this.props.url}</span>
+                <Button
+                    style={{objectPosition: "right"}}
+                    text={<span>&times;</span>}
                     onClick={this.onRemoveRequested} />
             </li>;
     }
 }
 
 /**
- * Root component of the queue viewer. All media objects
+ * Root component of the queue viewer. All  media objects
  * will be displayed here.
  */
 class QueueRoot extends React.Component {
@@ -343,6 +330,8 @@ class QueueRoot extends React.Component {
     }
 
     componentDidMount() { // Add socket listeners
+        socket = io();
+
         addListener("greet", this.recieveGreet);
 
         addListener("good delta", this.performDelta);
@@ -413,11 +402,35 @@ class QueueRoot extends React.Component {
         }
     }
 
+    /**
+     * Emit a proposal to the master queue.
+     */
+    propose(delta) {
+        emit("propose", delta);
+    }
+
+    /**
+     * Emit a delete proposal to the master queue.
+     */
+    proposeDeleteAt(index) {
+        if (index >= 0 && index < this.state.queue.length) {
+            this.propose({
+                action: 1,
+                indexes: [index]
+            })
+        } else {
+            console.warn("Invalid request to delete invalid index " + index);
+        }
+    }
+
     render() {
         return <ul>
                 {
-                    this.state.queue.map(media => (
-                        <MediaObjectComponent url={media.url} />
+                    this.state.queue.map((media, i) => (
+                        <MediaObjectComponent
+                            index={i}
+                            url={media.url}
+                            onRemoveRequested={() => this.proposeDeleteAt(i)} />
                     ))
                 }
             </ul>;
